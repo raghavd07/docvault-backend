@@ -158,18 +158,16 @@ const deactivateUser = async (req, res) => {
   }
 };
 
-// @desc    Soft delete user
+// @desc    Delete user
 // @route   DELETE /api/users/:id
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user || user.isDeleted) {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.isDeleted = true;
-    user.isActive = false;
-    await user.save();
+    await User.findByIdAndDelete(req.params.id);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
