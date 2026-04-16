@@ -129,8 +129,12 @@ const downloadSubmission = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const path = require('path');
-    res.download(path.resolve(submission.file.path), submission.file.originalName);
+    if (submission.file.path.startsWith('http')) {
+      res.redirect(submission.file.path);
+    } else {
+      const path = require('path');
+      res.download(path.resolve(submission.file.path), submission.file.originalName);
+    }
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

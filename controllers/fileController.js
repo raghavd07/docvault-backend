@@ -127,7 +127,11 @@ const downloadFile = async (req, res) => {
       resourceId: file._id,
     });
 
-    res.download(path.resolve(file.path), file.originalName);
+    if (file.path.startsWith('http')) {
+      res.redirect(file.path);
+    } else {
+      res.download(path.resolve(file.path), file.originalName);
+    }
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
