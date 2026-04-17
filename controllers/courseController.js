@@ -1,8 +1,6 @@
 const Course = require('../models/Course');
 const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
-const EnrollmentRequest = require('../models/EnrollmentRequest');
-const Notification = require('../models/Notification');
 
 // @desc    Create course
 // @route   POST /api/courses
@@ -102,88 +100,35 @@ const assignFaculty = async (req, res) => {
   }
 };
 
-// @desc    Submit enrollment request
-// @route   POST /api/courses/enroll-request
-const submitEnrollmentRequest = async (req, res) => {
+// @desc    Enroll student to course
+// @route   PUT /api/courses/:id/enroll-student
+const enrollStudent = async (req, res) => {
   try {
-    const { courseIds } = req.body;
-    if (!courseIds || courseIds.length === 0) {
-      return res.status(400).json({ message: 'No courses selected' });
+    const { studentId } = req.body;
+
+    const course = await Course.findById(req.params.id);
+    if (!course || course.isDeleted) {
+      return res.status(404).json({ message: 'Course not found' });
     }
 
-    const request = await EnrollmentRequest.create({
-      student: req.user._id,
-      courses: courseIds,
-    });
-
-    res.status(201).json({ message: 'Enrollment request submitted', request });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Get all enrollment requests
-// @route   GET /api/courses/enrollment-requests
-const getEnrollmentRequests = async (req, res) => {
-  try {
-    const requests = await EnrollmentRequest.find()
-      .populate('student', 'name email department')
-      .populate('courses', 'name code')
-      .sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Approve enrollment request
-// @route   PUT /api/courses/enrollment-requests/:id/approve
-const approveEnrollmentRequest = async (req, res) => {
-  try {
-    const request = await EnrollmentRequest.findById(req.params.id)
-      .populate('courses', '_id')
-      .populate('student', '_id courses role');
-
-    if (!request) return res.status(404).json({ message: 'Request not found' });
-    if (request.status !== 'pending') return res.status(400).json({ message: 'Request already processed' });
-
-    const student = await User.findById(request.student._id);
-
-    for (const c of request.courses) {
-      const course = await Course.findById(c._id);
-      if (course) {
-        if (!course.students.includes(student._id)) {
-          course.students.push(student._id);
-          await course.save();
-        }
-        if (!student.courses.includes(course._id)) {
-          student.courses.push(course._id);
-        }
-      }
+    const student = await User.findById(studentId);
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({ message: 'Student not found' });
     }
-    await student.save();
 
-    request.status = 'approved';
-    await request.save();
+    if (course.students.includes(studentId)) {
+      return res.status(400).json({ message: 'Student already enrolled in this course' });
+    }
 
-    res.json({ message: 'Request approved successfully', request });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    course.students.push(studentId);
+    await course.save();
 
-// @desc    Reject enrollment request
-// @route   PUT /api/courses/enrollment-requests/:id/reject
-const rejectEnrollmentRequest = async (req, res) => {
-  try {
-    const request = await EnrollmentRequest.findById(req.params.id);
-    if (!request) return res.status(404).json({ message: 'Request not found' });
-    if (request.status !== 'pending') return res.status(400).json({ message: 'Request already processed' });
+    if (!student.courses.includes(course._id)) {
+      student.courses.push(course._id);
+      await student.save();
+    }
 
-    request.status = 'rejected';
-    await request.save();
-
-    res.json({ message: 'Request rejected successfully', request });
+    res.json({ message: 'Student enrolled successfully', course });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -230,10 +175,7 @@ module.exports = {
   getAllCourses,
   getCourseById,
   assignFaculty,
-  submitEnrollmentRequest,
-  getEnrollmentRequests,
-  approveEnrollmentRequest,
-  rejectEnrollmentRequest,
+  enrollStudent,
   deleteCourse,
   updateCourse
 };

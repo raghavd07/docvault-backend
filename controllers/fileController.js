@@ -128,9 +128,43 @@ const downloadFile = async (req, res) => {
     });
 
     if (file.path.startsWith('http')) {
-      res.redirect(file.path);
+      const response = await fetch(file.path);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+      res.setHeader('Content-Type', file.mimetype);
+      return res.send(buffer);
     } else {
       res.download(path.resolve(file.path), file.originalName);
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    View a file inline
+// @route   GET /api/files/:id/view
+const viewFile = async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id);
+
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    if (file.expiryDate && new Date() > file.expiryDate) {
+      return res.status(403).json({ message: 'File access has expired' });
+    }
+
+    if (file.path.startsWith('http')) {
+      const response = await fetch(file.path);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`);
+      res.setHeader('Content-Type', file.mimetype);
+      return res.send(buffer);
+    } else {
+      res.sendFile(path.resolve(file.path));
     }
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -267,6 +301,7 @@ module.exports = {
   getAllFiles,
   getFileById,
   downloadFile,
+  viewFile,
   deleteFile,
   restoreFile,
   searchFiles,

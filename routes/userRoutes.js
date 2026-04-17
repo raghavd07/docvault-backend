@@ -13,15 +13,13 @@ const {
 const { protect, authorizeRoles } = require('../middleware/auth');
 
 router.use(protect);
-router.use(authorizeRoles('admin'));
+router.post('/', authorizeRoles('admin'), createUser);
+router.get('/', authorizeRoles('admin', 'faculty'), getAllUsers);
+router.get('/:id', authorizeRoles('admin', 'faculty'), getUserById);
+router.put('/:id', authorizeRoles('admin'), updateUser);
+router.put('/:id/deactivate', authorizeRoles('admin'), deactivateUser);
+router.delete('/:id', authorizeRoles('admin'), deleteUser);
 
-router.post('/', createUser);
-router.get('/', getAllUsers);
-router.get('/:id', getUserById);
-router.put('/:id', updateUser);
-router.put('/:id/deactivate', deactivateUser);
-router.delete('/:id', deleteUser);
-
-router.put('/:id/reset-password', resetPassword);
-router.put('/:id/reactivate', reactivateUser);
+router.put('/:id/reset-password', authorizeRoles('admin'), resetPassword);
+router.put('/:id/reactivate', authorizeRoles('admin'), reactivateUser);
 module.exports = router;

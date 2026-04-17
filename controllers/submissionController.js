@@ -130,10 +130,46 @@ const downloadSubmission = async (req, res) => {
     }
 
     if (submission.file.path.startsWith('http')) {
-      res.redirect(submission.file.path);
+      const response = await fetch(submission.file.path);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Disposition', `attachment; filename="${submission.file.originalName}"`);
+      res.setHeader('Content-Type', submission.file.mimetype);
+      return res.send(buffer);
     } else {
       const path = require('path');
       res.download(path.resolve(submission.file.path), submission.file.originalName);
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    View submission file inline
+// @route   GET /api/submissions/:id/view
+const viewSubmission = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id);
+
+    if (!submission || submission.isDeleted) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    if (req.user.role === 'student' &&
+      submission.student.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (submission.file.path.startsWith('http')) {
+      const response = await fetch(submission.file.path);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Disposition', `inline; filename="${submission.file.originalName}"`);
+      res.setHeader('Content-Type', submission.file.mimetype);
+      return res.send(buffer);
+    } else {
+      const path = require('path');
+      res.sendFile(path.resolve(submission.file.path));
     }
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -155,6 +191,17 @@ const deleteSubmission = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    if (req.user.role === 'admin') {
+      try {
+        const cloudinary = require('cloudinary').v2;
+        if (submission.file && submission.file.name) {
+          await cloudinary.uploader.destroy(submission.file.name);
+        }
+      } catch (err) {}
+      await Submission.findByIdAndDelete(req.params.id);
+      return res.json({ message: 'Submission permanently deleted' });
+    }
+
     submission.isDeleted = true;
     await submission.save();
 
@@ -169,5 +216,6 @@ module.exports = {
   getSubmissions,
   getSubmissionById,
   downloadSubmission,
+  viewSubmission,
   deleteSubmission,
 };

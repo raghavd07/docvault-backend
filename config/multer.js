@@ -12,12 +12,24 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'filesharing_uploads',
-    resource_type: 'auto', // Allows uploading non-images too
-    // Keeping the original filename logic by specifying public_id based on original file
+    resource_type: (req, file) => {
+      if (file.mimetype.startsWith('image/')) return 'image';
+      return 'raw';
+    },
+    format: async (req, file) => {
+      // Force txt format for raw files to bypass Cloudinary PDF restrictions
+      if (!file.mimetype.startsWith('image/')) return 'txt';
+      return undefined; // Let cloudinary decide for images
+    },
     public_id: (req, file) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const name = file.originalname.split('.')[0];
-      return `${name}-${uniqueSuffix}`;
+      
+      let overrideExt = '';
+      if (!file.mimetype.startsWith('image/')) {
+        overrideExt = '.txt'; // Always override with .txt to trick Cloudinary block
+      }
+      return `${name}-${uniqueSuffix}${overrideExt}`;
     }
   },
 });

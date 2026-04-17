@@ -5,6 +5,7 @@ const {
   getSubmissions,
   getSubmissionById,
   downloadSubmission,
+  viewSubmission,
   deleteSubmission,
 } = require('../controllers/submissionController');
 const { protect, authorizeRoles } = require('../middleware/auth');
@@ -13,6 +14,7 @@ const upload = require('../config/multer');
 router.get('/', protect, getSubmissions);
 router.get('/:id', protect, getSubmissionById);
 router.get('/:id/download', protect, downloadSubmission);
+router.get('/:id/view', protect, viewSubmission);
 router.post('/', protect, authorizeRoles('student'), upload.single('file'), submitAssignment);
 router.delete('/:id', protect, deleteSubmission);
 
