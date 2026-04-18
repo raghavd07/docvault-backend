@@ -52,8 +52,21 @@ const getAllFiles = async (req, res) => {
       // Admin sees everything including soft deleted
       query = {};
     } else if (req.user.role === 'faculty') {
-      // Faculty only sees their own non-deleted files
-      query = { isDeleted: false, uploadedBy: req.user._id };
+      // Fetch courses the faculty is assigned to
+      const taughtCourses = await Course.find({
+        faculty: req.user._id,
+      }).select('_id');
+      const facultyCourseIds = taughtCourses.map((c) => c._id);
+
+      // Faculty sees their own non-deleted files, files shared with them, AND course-wide files
+      query = {
+        isDeleted: false,
+        $or: [
+          { uploadedBy: req.user._id },
+          { sharedWith: req.user._id },
+          { course: { $in: facultyCourseIds }, shareType: 'course' },
+        ],
+      };
     } else if (req.user.role === 'student') {
       // Fetch courses the student is enrolled in
       const enrolledCourses = await Course.find({
@@ -265,7 +278,16 @@ const searchFiles = async (req, res) => {
     let query = { isDeleted: false };
 
     if (req.user.role === 'faculty') {
-      query.uploadedBy = req.user._id;
+      const taughtCourses = await Course.find({
+        faculty: req.user._id,
+      }).select('_id');
+      const facultyCourseIds = taughtCourses.map((c) => c._id);
+
+      query.$or = [
+        { uploadedBy: req.user._id },
+        { sharedWith: req.user._id },
+        { course: { $in: facultyCourseIds }, shareType: 'course' },
+      ];
     } else if (req.user.role === 'student') {
       const enrolledCourses = await Course.find({
         students: req.user._id,
