@@ -212,6 +212,13 @@ const reactivateUser = async (req, res) => {
     user.isActive = true;
     await user.save();
 
+    await ActivityLog.create({
+      user: req.user._id,
+      action: 'activate_user',
+      description: `Admin reactivated user ${user.name}`,
+      resourceId: user._id,
+    });
+
     res.json({ message: 'User reactivated successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
